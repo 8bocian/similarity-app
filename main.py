@@ -9,8 +9,11 @@ from sklearn.manifold import TSNE
 
 
 def calculate_products_distance(p1, p2):
-    squared_dist = np.sum((p1 - p2) ** 2, axis=0)
-    dist = np.sqrt(squared_dist)
+    x1, y1, z1 = p1
+    x2, y2, z2 = p2
+    dist = abs(x1 - x2) + abs(y1 - y2) + abs(z1 - z2)
+    # squared_dist = np.sum((p1 - p2) ** 2, axis=0)
+    # dist = np.sqrt(squared_dist)
     return dist
 
 
@@ -36,7 +39,7 @@ def preprocess(df, n_components):
 
     df['textual_embed'] = [row for row in df[textual_embed_cols].values]
     df = df[['code', 'product_name', 'textual_embed']]
-    logger.debug("Preprocessing data 4/4")
+    logger.debug("Preprocessed data")
     return df
 
 
@@ -69,9 +72,9 @@ if __name__ == "__main__":
     logger.addHandler(console_handler)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--central_file", type=str, help="path to main csv file", default=None)
-    parser.add_argument("--client_file", type=str, help="path to secondary csv file", default=None)
-    parser.add_argument("--output_file", type=str, help="path to putput json file", default=None)
+    parser.add_argument("central_file", type=str, help="path to main csv file", default=None)
+    parser.add_argument("client_file", type=str, help="path to secondary csv file", default=None)
+    parser.add_argument("output_file", type=str, help="path to putput json file", default=None)
 
     args = parser.parse_args()
     central_data_path = args.central_file
@@ -90,6 +93,7 @@ if __name__ == "__main__":
     df_secondary.columns = ['code', 'product_name']
 
     df_ = pd.concat([df_main, df_secondary])
+    df_ = df_.astype(str)
 
     df_ = preprocess(df_, n_components=n_components)
 
@@ -127,5 +131,5 @@ if __name__ == "__main__":
 
     df.columns = ['kod_klient', 'nazwa_klient', 'dopasowana_nazwa_centrala', 'dopasowany_kod_centrala']
 
-    df.to_json(output_file_name, orient="records")
+    df.to_json(output_file_name, orient="records", date_format="iso", date_unit="s")
     logger.debug(f"Synchronized all products")
