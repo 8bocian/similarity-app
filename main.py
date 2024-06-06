@@ -9,7 +9,7 @@ from sklearn.manifold import TSNE
 
 
 def calculate_products_distance(p1, p2):
-    squared_dist = np.sum((np.array([float(p) for p in p1]) - np.array([float(p) for p in p2])) ** 2, axis=0)
+    squared_dist = np.sum((p1 - p2) ** 2, axis=0)
     dist = np.sqrt(squared_dist)
     return dist
 
