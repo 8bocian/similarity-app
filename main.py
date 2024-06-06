@@ -1,14 +1,11 @@
 import argparse
 import logging
-import os
 import sys
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 import pandas as pd
-import dotenv
 import re
 from sklearn.manifold import TSNE
-import pickle
 
 
 def calculate_products_distance(p1, p2):
@@ -17,7 +14,10 @@ def calculate_products_distance(p1, p2):
     return dist
 
 
-def preprocess(df, n_components, tsne, tfidf, train):
+def preprocess(df, n_components):
+    tfidf = TfidfVectorizer(analyzer='word')
+    tsne = TSNE(n_components=n_components, random_state=42)
+
     textual_embed_cols = [f'textual_embed_{r}' for r in range(n_components)]
     logger.debug("Preprocessing data")
     df = df.replace({np.nan: None})
@@ -26,24 +26,18 @@ def preprocess(df, n_components, tsne, tfidf, train):
     df['product_name'] = [clean_string(product_name) for product_name in df['product_name'].values]
 
     logger.debug("Preprocessing data 2/4")
-    if train:
-        textual_matrix = tfidf.fit_transform(df['product_name'])
-    else:
-        textual_matrix = tfidf.transform(df['product_name'])
+    textual_matrix = tfidf.fit_transform(df['product_name'])
 
     logger.debug("Preprocessing data 3/4")
 
-    if train:
-        total_textual_embed = tsne.fit_transform(textual_matrix.toarray())
-    else:
-        total_textual_embed = tsne.fit_transform(textual_matrix.toarray())
+    total_textual_embed = tsne.fit_transform(textual_matrix.toarray())
 
     df[textual_embed_cols] = [row for row in total_textual_embed]
 
     df['textual_embed'] = [row for row in df[textual_embed_cols].values]
     df = df[['code', 'product_name', 'textual_embed']]
     logger.debug("Preprocessing data 4/4")
-    return df, tsne, tfidf
+    return df
 
 
 def clean_string(string):
@@ -63,8 +57,6 @@ def clean_string(string):
 
 
 if __name__ == "__main__":
-    dotenv.load_dotenv()
-
     logger = logging.getLogger('my_logger')
 
     logger.setLevel(logging.DEBUG)
@@ -88,10 +80,10 @@ if __name__ == "__main__":
 
     n_components = 3
 
-    df_main = pd.read_csv(central_data_path)
+    df_main = pd.read_csv(central_data_path, sep=';')
     df_main = df_main[df_main.columns[:2]]
 
-    df_secondary = pd.read_csv(shop_data_path)
+    df_secondary = pd.read_csv(shop_data_path, sep=';')
     df_secondary = df_secondary[df_secondary.columns[:2]]
 
     df_main.columns = ['code', 'product_name']
@@ -99,9 +91,7 @@ if __name__ == "__main__":
 
     df_ = pd.concat([df_main, df_secondary])
 
-    tfidf = TfidfVectorizer(analyzer='word')
-    tsne = TSNE(n_components=n_components, random_state=42)
-    df_, tsne, tfidf = preprocess(df_, n_components=n_components, tfidf=tfidf, tsne=tsne, train=True)
+    df_ = preprocess(df_, n_components=n_components)
 
     df_main, df_secondary = df_[:len(df_main)], df_[len(df_main):]
 
