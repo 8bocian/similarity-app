@@ -1,27 +1,24 @@
 import argparse
 import logging
+import os
 import sys
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import dotenv
 import re
 from sklearn.manifold import TSNE
-
+import pickle
 
 
 def calculate_products_distance(p1, p2):
-    squared_dist = np.sum((p1 - p2) ** 2, axis=0)
+    squared_dist = np.sum((np.array([float(p) for p in p1]) - np.array([float(p) for p in p2])) ** 2, axis=0)
     dist = np.sqrt(squared_dist)
     return dist
 
-def preprocess(df1, df2, n_components):
+
+def preprocess(df, n_components, tsne, tfidf, train):
     textual_embed_cols = [f'textual_embed_{r}' for r in range(n_components)]
-    dfs = [df1, df2]
-    df = pd.DataFrame()
-    for df_ in dfs:
-        df = pd.concat([df, df_])
     logger.debug("Preprocessing data")
     df = df.replace({np.nan: None})
     df.fillna("", inplace=True)
@@ -29,19 +26,24 @@ def preprocess(df1, df2, n_components):
     df['product_name'] = [clean_string(product_name) for product_name in df['product_name'].values]
 
     logger.debug("Preprocessing data 2/4")
-    tfidf_vectorizer = TfidfVectorizer(analyzer='word')
-    textual_matrix = tfidf_vectorizer.fit_transform(df['product_name'])
+    if train:
+        textual_matrix = tfidf.fit_transform(df['product_name'])
+    else:
+        textual_matrix = tfidf.transform(df['product_name'])
 
     logger.debug("Preprocessing data 3/4")
-    tsne = TSNE(n_components=n_components, random_state=42)
-    tsne.get_params()
-    total_textual_embed = tsne.fit_transform(textual_matrix.toarray())
+
+    if train:
+        total_textual_embed = tsne.fit_transform(textual_matrix.toarray())
+    else:
+        total_textual_embed = tsne.fit_transform(textual_matrix.toarray())
+
     df[textual_embed_cols] = [row for row in total_textual_embed]
 
     df['textual_embed'] = [row for row in df[textual_embed_cols].values]
     df = df[['code', 'product_name', 'textual_embed']]
     logger.debug("Preprocessing data 4/4")
-    return df[:len(df1)], df[len(df1):]
+    return df, tsne, tfidf
 
 
 def clean_string(string):
@@ -60,26 +62,6 @@ def clean_string(string):
         return ""
 
 
-def project(df):
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
-
-    field = "textual_embed"
-
-    m, zlow, zhigh = ('^', -30, -5)
-    xs = [row[0] for row in df[field].values]
-    ys = [row[1] for row in df[field].values]
-    zs = [row[2] for row in df[field].values]
-
-    ax.scatter(xs, ys, zs, marker=m)
-
-    ax.set_xlabel(field + "0")
-    ax.set_ylabel(field + "1")
-    ax.set_zlabel(field + "2")
-
-    plt.show()
-
-
 if __name__ == "__main__":
     dotenv.load_dotenv()
 
@@ -95,49 +77,65 @@ if __name__ == "__main__":
     logger.addHandler(console_handler)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--main_csv", type=str, help="path to main csv file", default=None)
-    parser.add_argument("--secondary_csv", type=str, help="path to secondary csv file", default=None)
+    parser.add_argument("--central_file", type=str, help="path to main csv file", default=None)
+    parser.add_argument("--client_file", type=str, help="path to secondary csv file", default=None)
+    parser.add_argument("--output_file", type=str, help="path to putput json file", default=None)
 
     args = parser.parse_args()
-    main_csv_path = args.main_csv
-    secondary_csv_path = args.secondary_csv
+    central_data_path = args.central_file
+    shop_data_path = args.client_file
+    output_file_name = args.output_file
 
     n_components = 3
 
-    df_main = pd.read_csv(main_csv_path, sep=';')
+    df_main = pd.read_csv(central_data_path)
     df_main = df_main[df_main.columns[:2]]
 
-    df_secondary = pd.read_csv(secondary_csv_path, sep=';')
+    df_secondary = pd.read_csv(shop_data_path)
     df_secondary = df_secondary[df_secondary.columns[:2]]
-
-    # df_main = df_main.iloc[:20]
-    # df_secondary = df_secondary.iloc[:20]
 
     df_main.columns = ['code', 'product_name']
     df_secondary.columns = ['code', 'product_name']
-    df_main_len = len(df_main)
-    df_main, df_secondary = preprocess(df_main, df_secondary, n_components=n_components)
+
+    df_ = pd.concat([df_main, df_secondary])
+
+    tfidf = TfidfVectorizer(analyzer='word')
+    tsne = TSNE(n_components=n_components, random_state=42)
+    df_, tsne, tfidf = preprocess(df_, n_components=n_components, tfidf=tfidf, tsne=tsne, train=True)
+
+    df_main, df_secondary = df_[:len(df_main)], df_[len(df_main):]
 
     n_matches = 1
     matched_products = []
+    matched_products_codes = []
     distances = []
-    print(len(df_main), len(df_secondary))
+
     for idx_secondary, row_secondary in df_secondary.iterrows():
         product_secondary = row_secondary['textual_embed']
         min_dist = np.inf
         matched_product = None
-
+        matched_product_code = None
         for idx_main, row_main in df_main.iterrows():
             product_main = row_main['textual_embed']
             distance = calculate_products_distance(p1=product_secondary, p2=product_main)
             if distance < min_dist:
                 min_dist = distance
                 matched_product = row_main['product_name']
+                matched_product_code = row_main['code']
+
         matched_products.append(matched_product)
+        matched_products_codes.append(matched_product_code)
         distances.append(min_dist)
+
     df_secondary['central_product_matched'] = matched_products
+    df_secondary['central_code_matched'] = matched_products_codes
     df_secondary['score'] = distances
+
     df_secondary = df_secondary.sort_values('score', ascending=True)
-    df = df_secondary[['code', 'product_name', 'central_product_matched', 'score']]
-    df.to_csv(f'result_pairing_clean_lubanska_4343.csv')
+
+    df = df_secondary[['code', 'product_name', 'central_product_matched', 'central_code_matched']]
+
+    df.columns = ['kod_klient', 'nazwa_klient', 'dopasowana_nazwa_centrala', 'dopasowany_kod_centrala']
+
+    df.to_json(output_file_name, orient="records")
     logger.debug(f"Synchronized all products")
