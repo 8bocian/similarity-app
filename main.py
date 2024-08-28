@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import re
 from sklearn.manifold import TSNE
+import heapq
 
 
 def calculate_products_distance(p1, p2):
@@ -26,6 +27,7 @@ def preprocess(df, n_components):
     df = df.replace({np.nan: None})
     df.fillna("", inplace=True)
     logger.debug("Preprocessing data 1/4")
+    # df['product_name'] = df['product_name'] + ' ' + df['category']
     df['product_name'] = [clean_string(product_name) for product_name in df['product_name'].values]
 
     logger.debug("Preprocessing data 2/4")
@@ -84,13 +86,13 @@ if __name__ == "__main__":
     n_components = 3
 
     df_main = pd.read_csv(central_data_path, sep=';')
-    df_main = df_main[df_main.columns[:2]]
+    df_main = df_main[df_main.columns[:3]]
 
     df_secondary = pd.read_csv(shop_data_path, sep=';')
-    df_secondary = df_secondary[df_secondary.columns[:2]]
+    df_secondary = df_secondary[df_secondary.columns[:3]]
 
-    df_main.columns = ['code', 'product_name']
-    df_secondary.columns = ['code', 'product_name']
+    df_main.columns = ['code', 'product_name', 'category']
+    df_secondary.columns = ['code', 'product_name', 'category']
 
     df_ = pd.concat([df_main, df_secondary])
     df_ = df_.astype(str)
@@ -99,34 +101,36 @@ if __name__ == "__main__":
 
     df_main, df_secondary = df_[:len(df_main)], df_[len(df_main):]
 
-    n_matches = 1
+    n_matches = 5
+
     matched_products = []
     matched_products_codes = []
     distances = []
 
     for idx_secondary, row_secondary in df_secondary.iterrows():
         product_secondary = row_secondary['textual_embed']
-        min_dist = np.inf
-        matched_product = None
-        matched_product_code = None
+
+        closest_matches = []
+
         for idx_main, row_main in df_main.iterrows():
             product_main = row_main['textual_embed']
             distance = calculate_products_distance(p1=product_secondary, p2=product_main)
-            if distance < min_dist:
-                min_dist = distance
-                matched_product = row_main['product_name']
-                matched_product_code = row_main['code']
 
-        matched_products.append(matched_product)
-        matched_products_codes.append(matched_product_code)
-        distances.append(min_dist)
+            heapq.heappush(closest_matches, (-distance, row_main['product_name'], row_main['code']))
+
+            if len(closest_matches) > n_matches:
+                heapq.heappop(closest_matches)
+
+        closest_matches.sort()
+        matched_products.append([match[1] for match in closest_matches])
+        matched_products_codes.append([match[2] for match in closest_matches])
+        distances.append([-match[0] for match in closest_matches])
 
     df_secondary['central_product_matched'] = matched_products
     df_secondary['central_code_matched'] = matched_products_codes
     df_secondary['score'] = distances
 
     df_secondary = df_secondary.sort_values('score', ascending=True)
-
     df = df_secondary[['code', 'product_name', 'central_product_matched', 'central_code_matched']]
 
     df.columns = ['kod_klient', 'nazwa_klient', 'dopasowana_nazwa_centrala', 'dopasowany_kod_centrala']
