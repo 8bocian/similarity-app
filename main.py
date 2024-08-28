@@ -27,7 +27,7 @@ def preprocess(df, n_components):
     df = df.replace({np.nan: None})
     df.fillna("", inplace=True)
     logger.debug("Preprocessing data 1/4")
-    # df['product_name'] = df['product_name'] + ' ' + df['category']
+    df['product_name'] = df['product_name'] + ' ' + df['category']
     df['product_name'] = [clean_string(product_name) for product_name in df['product_name'].values]
 
     logger.debug("Preprocessing data 2/4")
