@@ -27,7 +27,7 @@ def preprocess(df, n_components):
     df = df.replace({np.nan: None})
     df.fillna("", inplace=True)
     logger.debug("Preprocessing data 1/4")
-    df['product_name'] = df['product_name'] + ' ' + df['category']
+    # df['product_name'] = df['product_name'] + ' ' + df['category']
     df['product_name'] = [clean_string(product_name) for product_name in df['product_name'].values]
 
     logger.debug("Preprocessing data 2/4")
@@ -121,16 +121,18 @@ if __name__ == "__main__":
             if len(closest_matches) > n_matches:
                 heapq.heappop(closest_matches)
 
-        closest_matches.sort()
         matched_products.append([match[1] for match in closest_matches])
         matched_products_codes.append([match[2] for match in closest_matches])
         distances.append([-match[0] for match in closest_matches])
+
+    # matched_products.reverse()
+    # matched_products_codes.reverse()
 
     df_secondary['central_product_matched'] = matched_products
     df_secondary['central_code_matched'] = matched_products_codes
     df_secondary['score'] = distances
 
-    df_secondary = df_secondary.sort_values('score', ascending=True)
+    df_secondary = df_secondary.sort_values('score', ascending=False)
     df = df_secondary[['code', 'product_name', 'central_product_matched', 'central_code_matched']]
 
     df.columns = ['kod_klient', 'nazwa_klient', 'dopasowana_nazwa_centrala', 'dopasowany_kod_centrala']
