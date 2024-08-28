@@ -121,9 +121,17 @@ if __name__ == "__main__":
             if len(closest_matches) > n_matches:
                 heapq.heappop(closest_matches)
 
-        matched_products.append([match[1] for match in closest_matches])
-        matched_products_codes.append([match[2] for match in closest_matches])
-        distances.append([-match[0] for match in closest_matches])
+        matched_products_ = [match[1] for match in closest_matches]
+        matched_products_codes_ = [match[2] for match in closest_matches]
+        distances_ = [-match[0] for match in closest_matches]
+
+        matched_products_.reverse()
+        matched_products_codes_.reverse()
+        distances_.reverse()
+
+        matched_products.append(matched_products_)
+        matched_products_codes.append(matched_products_codes_)
+        distances.append(distances_)
 
     # matched_products.reverse()
     # matched_products_codes.reverse()
@@ -132,8 +140,10 @@ if __name__ == "__main__":
     df_secondary['central_code_matched'] = matched_products_codes
     df_secondary['score'] = distances
 
-    df_secondary = df_secondary.sort_values('score', ascending=False)
+    df_secondary = df_secondary.sort_values('score')
     df = df_secondary[['code', 'product_name', 'central_product_matched', 'central_code_matched']]
+    print(df.T.head())
+    print(df.head().T)
 
     df.columns = ['kod_klient', 'nazwa_klient', 'dopasowana_nazwa_centrala', 'dopasowany_kod_centrala']
 
