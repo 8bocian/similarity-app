@@ -156,9 +156,8 @@ if __name__ == "__main__":
             distance = match[0]
 
             jaccard = jaccard_similarity(product_secondary_name, name)
-            seq_match = sequence_similarity(product_secondary_name, name)
             # combined_score = ((jaccard + seq_match) / 2)  # You can adjust the weightage of both methods here
-            combined_score = (0.7 * jaccard + 0.3 * seq_match)
+            # combined_score = (0.7 * jaccard + 0.3 * seq_match)
             similarities.append((jaccard, name, code))
             # MAYBE DON'T INCORPORATE THE DISTANCE AND JUST USE JACCARD AND SEQ_MATCH AT THIS POINT?
         similarities_sorted = np.array(sorted(similarities, key=lambda x: x[0], reverse=True))
