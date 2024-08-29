@@ -1,6 +1,8 @@
 import argparse
 import logging
 import sys
+from difflib import SequenceMatcher
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 import pandas as pd
@@ -47,19 +49,38 @@ def preprocess(df, n_components):
 
 def clean_string(string):
     try:
+        # polish_to_ascii = {
+        #     'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
+        #     'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+        #     'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N',
+        #     'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+        # }
+        #
+        # for polish_char, ascii_char in polish_to_ascii.items():
+        #     string = string.replace(polish_char, ascii_char)
         alphanum_str = re.sub(r'\W+', ' ', string.lower()).strip()
         alpha_str = re.sub('[0-9]', '', alphanum_str)
-
         def replace_match(match):
             return match.group(1) + ' ' + match.group(3)
 
         non_single = re.sub('\b[a-zA-Z0-9]\b', replace_match, alpha_str)
 
         single_spaces = re.sub('\s{2,}', ' ', non_single)
-        return single_spaces
+        return single_spaces.strip()
     except:
         return ""
 
+def jaccard_similarity(str1, str2):
+    """Calculate Jaccard Similarity between two strings."""
+    set1 = set(str1.split())
+    set2 = set(str2.split())
+    intersection = set1.intersection(set2)
+    union = set1.union(set2)
+    return len(intersection) / len(union)
+
+def sequence_similarity(str1, str2):
+    """Calculate sequence similarity ratio between two strings using SequenceMatcher."""
+    return SequenceMatcher(None, str1, str2).ratio()
 
 if __name__ == "__main__":
     logger = logging.getLogger('my_logger')
@@ -109,6 +130,7 @@ if __name__ == "__main__":
 
     for idx_secondary, row_secondary in df_secondary.iterrows():
         product_secondary = row_secondary['textual_embed']
+        product_secondary_name = row_secondary['product_name']
 
         closest_matches = []
 
@@ -123,18 +145,36 @@ if __name__ == "__main__":
 
         matched_products_ = [match[1] for match in closest_matches]
         matched_products_codes_ = [match[2] for match in closest_matches]
-        distances_ = [-match[0] for match in closest_matches]
+        distances_ = [match[0] for match in closest_matches]
+        similarities = []
 
-        matched_products_.reverse()
-        matched_products_codes_.reverse()
-        distances_.reverse()
+        # print(product_secondary_name)
+        # print(closest_matches)
+        for idx, match in enumerate(closest_matches):
+            name = match[1]
+            code = match[2]
+            distance = match[0]
+
+            jaccard = jaccard_similarity(product_secondary_name, name)
+            seq_match = sequence_similarity(product_secondary_name, name)
+            # combined_score = ((jaccard + seq_match) / 2)  # You can adjust the weightage of both methods here
+            combined_score = (0.7 * jaccard + 0.3 * seq_match)
+            similarities.append((jaccard, name, code))
+            # MAYBE DON'T INCORPORATE THE DISTANCE AND JUST USE JACCARD AND SEQ_MATCH AT THIS POINT?
+        similarities_sorted = np.array(sorted(similarities, key=lambda x: x[0], reverse=True))
+        matched_products_ = list(similarities_sorted[:, 1])
+        matched_products_codes_ = list(similarities_sorted[:, 2])
+        distances_ = list(similarities_sorted[:, 0])
+        # print(similarities_sorted)
+        # quit()
+
+        # matched_products_.reverse()
+        # matched_products_codes_.reverse()
+        # distances_.reverse()
 
         matched_products.append(matched_products_)
         matched_products_codes.append(matched_products_codes_)
         distances.append(distances_)
-
-    # matched_products.reverse()
-    # matched_products_codes.reverse()
 
     df_secondary['central_product_matched'] = matched_products
     df_secondary['central_code_matched'] = matched_products_codes
