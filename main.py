@@ -8,21 +8,24 @@ import numpy as np
 import pandas as pd
 import re
 from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA  # Alternatively, use UMAP for better performance
+
+# from umap import UMAP
 import heapq
 
 
 def calculate_products_distance(p1, p2):
-    x1, y1, z1 = p1
-    x2, y2, z2 = p2
-    dist = abs(x1 - x2) + abs(y1 - y2) + abs(z1 - z2)
-    # squared_dist = np.sum((p1 - p2) ** 2, axis=0)
+    # x1, y1, z1 = p1
+    # x2, y2, z2 = p2
+    # dist = abs(x1 - x2) + abs(y1 - y2) + abs(z1 - z2)
+    # squared_dist = np.subm((p1 - p2) ** 2, axis=0)
     # dist = np.sqrt(squared_dist)
-    return dist
+    return np.linalg.norm(p1 - p2)
 
 
 def preprocess(df, n_components):
-    tfidf = TfidfVectorizer(analyzer='word')
-    tsne = TSNE(n_components=n_components, random_state=42)
+    tfidf = TfidfVectorizer(strip_accents='ascii', analyzer='char_wb', norm='l1')
+    reducer = PCA(n_components=n_components, random_state=42)
 
     textual_embed_cols = [f'textual_embed_{r}' for r in range(n_components)]
     logger.debug("Preprocessing data")
@@ -37,7 +40,7 @@ def preprocess(df, n_components):
 
     logger.debug("Preprocessing data 3/4")
 
-    total_textual_embed = tsne.fit_transform(textual_matrix.toarray())
+    total_textual_embed = reducer.fit_transform(textual_matrix.toarray())
 
     df[textual_embed_cols] = [row for row in total_textual_embed]
 
@@ -49,15 +52,15 @@ def preprocess(df, n_components):
 
 def clean_string(string):
     try:
-        # polish_to_ascii = {
-        #     'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
-        #     'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
-        #     'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N',
-        #     'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
-        # }
-        #
-        # for polish_char, ascii_char in polish_to_ascii.items():
-        #     string = string.replace(polish_char, ascii_char)
+        polish_to_ascii = {
+            'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
+            'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+            'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N',
+            'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+        }
+
+        for polish_char, ascii_char in polish_to_ascii.items():
+            string = string.replace(polish_char, ascii_char)
         alphanum_str = re.sub(r'\W+', ' ', string.lower()).strip()
         alpha_str = re.sub('[0-9]', '', alphanum_str)
         def replace_match(match):
