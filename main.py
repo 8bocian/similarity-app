@@ -8,24 +8,16 @@ import numpy as np
 import pandas as pd
 import re
 from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA  # Alternatively, use UMAP for better performance
-
-# from umap import UMAP
 import heapq
 
 
 def calculate_products_distance(p1, p2):
-    # x1, y1, z1 = p1
-    # x2, y2, z2 = p2
-    # dist = abs(x1 - x2) + abs(y1 - y2) + abs(z1 - z2)
-    # squared_dist = np.subm((p1 - p2) ** 2, axis=0)
-    # dist = np.sqrt(squared_dist)
     return np.linalg.norm(p1 - p2)
 
 
 def preprocess(df, n_components):
     tfidf = TfidfVectorizer(strip_accents='ascii', analyzer='char_wb', norm='l1')
-    reducer = PCA(n_components=n_components, random_state=42)
+    reducer = TSNE(n_components=n_components, random_state=42)
 
     textual_embed_cols = [f'textual_embed_{r}' for r in range(n_components)]
     logger.debug("Preprocessing data")
