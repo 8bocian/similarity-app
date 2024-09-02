@@ -16,8 +16,8 @@ def calculate_products_distance(p1, p2):
 
 
 def preprocess(df, n_components):
-    tfidf = TfidfVectorizer(strip_accents='ascii', analyzer='char_wb', norm='l1')
-    reducer = TSNE(n_components=n_components, random_state=42)
+    tfidf = TfidfVectorizer(strip_accents='ascii', analyzer='char_wb', norm='l2')
+    reducer = TSNE(n_components=n_components, random_state=42, angle=0.4)
 
     textual_embed_cols = [f'textual_embed_{r}' for r in range(n_components)]
     logger.debug("Preprocessing data")
@@ -132,6 +132,7 @@ if __name__ == "__main__":
         for idx_main, row_main in df_main.iterrows():
             product_main = row_main['textual_embed']
             distance = calculate_products_distance(p1=product_secondary, p2=product_main)
+            jaccard = jaccard_similarity(product_secondary_name, row_main['product_name'])
 
             heapq.heappush(closest_matches, (-distance, row_main['product_name'], row_main['code']))
 
