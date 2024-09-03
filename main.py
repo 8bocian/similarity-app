@@ -175,7 +175,7 @@ if __name__ == "__main__":
     df_secondary['central_code_matched'] = matched_products_codes
     df_secondary['score'] = distances
 
-    df_secondary = df_secondary.sort_values('score')
+    df_secondary = df_secondary.sort_values('score', ascending=False)
     df = df_secondary[['code', 'product_name', 'central_product_matched', 'central_code_matched']]
     print(df.T.head())
     print(df.head().T)
