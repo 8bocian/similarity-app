@@ -35,7 +35,6 @@ def preprocess(df, n_components):
     df[textual_embed_cols] = [row for row in total_textual_embed]
 
     df['textual_embed'] = [row for row in df[textual_embed_cols].values]
-    print(df['textual_embed'].head(5))
     df = df[['code', 'product_name', 'textual_embed']]
     logger.debug("Preprocessed data")
     return df
@@ -100,13 +99,14 @@ if __name__ == "__main__":
 
     n_components = 3
 
-    df_main = pd.read_csv(central_data_path, sep=';')
+    df_main = pd.read_csv(central_data_path, sep=';', dtype = str)
     df_main = df_main[df_main.columns[:3]]
 
-    df_secondary = pd.read_csv(shop_data_path, sep=';')
+    df_secondary = pd.read_csv(shop_data_path, sep=';', dtype = str)
     df_secondary = df_secondary[df_secondary.columns[:3]]
 
     df_main.columns = ['code', 'product_name', 'category']
+
     df_secondary.columns = ['code', 'product_name', 'category']
 
     df_ = pd.concat([df_main, df_secondary])
@@ -115,7 +115,6 @@ if __name__ == "__main__":
     df_ = preprocess(df_, n_components=n_components)
 
     df_main, df_secondary = df_[:len(df_main)], df_[len(df_main):]
-    print(len(df_main))
     n_matches = 5
 
     matched_products = []
@@ -176,8 +175,7 @@ if __name__ == "__main__":
 
     df_secondary = df_secondary.sort_values('score', ascending=False)
     df = df_secondary[['code', 'product_name', 'central_product_matched', 'central_code_matched']]
-    print(df.T.head())
-    print(df.head().T)
+
 
     df.columns = ['kod_klient', 'nazwa_klient', 'dopasowana_nazwa_centrala', 'dopasowany_kod_centrala']
 
