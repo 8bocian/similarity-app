@@ -16,8 +16,8 @@ def calculate_products_distance(p1, p2):
 
 
 def preprocess(df, n_components):
-    tfidf = TfidfVectorizer(strip_accents='ascii', analyzer='char_wb', norm='l2')
-    reducer = TSNE(n_components=n_components, random_state=42, angle=0.4)
+    tfidf = TfidfVectorizer(strip_accents='ascii', analyzer='word')
+    reducer = TSNE(n_components=n_components, random_state=42, angle=0.4, n_iter=1000, verbose=1)
 
     textual_embed_cols = [f'textual_embed_{r}' for r in range(n_components)]
     logger.debug("Preprocessing data")
@@ -29,14 +29,13 @@ def preprocess(df, n_components):
 
     logger.debug("Preprocessing data 2/4")
     textual_matrix = tfidf.fit_transform(df['product_name'])
-
     logger.debug("Preprocessing data 3/4")
 
     total_textual_embed = reducer.fit_transform(textual_matrix.toarray())
-
     df[textual_embed_cols] = [row for row in total_textual_embed]
 
     df['textual_embed'] = [row for row in df[textual_embed_cols].values]
+    print(df['textual_embed'].head(5))
     df = df[['code', 'product_name', 'textual_embed']]
     logger.debug("Preprocessed data")
     return df
@@ -116,7 +115,7 @@ if __name__ == "__main__":
     df_ = preprocess(df_, n_components=n_components)
 
     df_main, df_secondary = df_[:len(df_main)], df_[len(df_main):]
-
+    print(len(df_main))
     n_matches = 5
 
     matched_products = []
